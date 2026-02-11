@@ -1,16 +1,28 @@
-# coopuber
+# \# Tapilimpio Admin 🧼
 
-A new Flutter project.
+# 
 
-## Getting Started
+# Sistema de gestión de órdenes de limpieza para \*\*Tapilimpio\*\*.
 
-This project is a starting point for a Flutter application.
+# 
 
-A few resources to get you started if this is your first Flutter project:
+# \## Funcionalidades actuales:
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+# \* 📍 \*\*Geolocalización:\*\* Ubicación de clientes mediante Google Maps y búsqueda por dirección.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+# \* 📋 \*\*Gestión de Órdenes:\*\* Creación de pedidos con múltiples ítems, cantidades y precios.
+
+# \* 👷 \*\*Control de Operadores:\*\* Asignación de personal y gestión de la lista de operadores desde Firebase.
+
+# \* 🔍 \*\*Filtros:\*\* Visualización de órdenes pendientes y filtrado por operador.
+
+# 
+
+# \## Tecnologías usadas:
+
+# \* Flutter \& Dart
+
+# \* Firebase Firestore (Base de datos en tiempo real)
+
+# \* Google Maps SDK
+
