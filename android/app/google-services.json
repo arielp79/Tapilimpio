@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "594990305829",
+    "project_id": "tapilimpio-7b263",
+    "storage_bucket": "tapilimpio-7b263.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:594990305829:android:3cf6300808ddd08f49e5cc",
+        "android_client_info": {
+          "package_name": "com.example.tapilimpio"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDED3I7OZc9rHP_NyY8kXdLMfiH00PwTk4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
