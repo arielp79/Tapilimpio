@@ -36,9 +36,7 @@ class AdminTapilimpio extends StatefulWidget {
 }
 
 class _AdminTapilimpioState extends State<AdminTapilimpio> {
-  // Guardado con todos los campos nuevos
   Future<void> _guardarEnFirebase() async {
-    // VALIDACIÓN: Si no elegiste operador, no te deja seguir
     if (operadorSeleccionado == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -49,19 +47,27 @@ class _AdminTapilimpioState extends State<AdminTapilimpio> {
       return; // Cancela el guardado
     }
 
-    // GUARDADO POSTERIOR A LA VALIDACIÓN
     await FirebaseFirestore.instance.collection('ordenes').add({
       'cliente_nombre': _nombreController.text,
       'cliente_telefono': _telefonoController.text,
-      'operador':
-          operadorSeleccionado, // <--- Verifica que esta variable sea la del Dropdown
+      'operador': operadorSeleccionado,
       'ciudad': ciudadSeleccionada,
       'direccion': _direccionController.text,
       'piso': _pisoController.text,
       'depto': _deptoController.text,
       'estado': 'pendiente',
-      'fecha': DateTime.now(),
+      'fecha': DateTime.now(), // Fecha de creación para registro
       'trabajos': trabajosAgregados,
+      // USA ESTE NOMBRE para que coincida con tu índice:
+      'turno': Timestamp.fromDate(
+        DateTime(
+          fechaSeleccionada.year,
+          fechaSeleccionada.month,
+          fechaSeleccionada.day,
+          horaSeleccionada.hour,
+          horaSeleccionada.minute,
+        ),
+      ),
     });
   }
 
@@ -99,6 +105,9 @@ class _AdminTapilimpioState extends State<AdminTapilimpio> {
   final TextEditingController _pisoController = TextEditingController();
   final TextEditingController _deptoController = TextEditingController();
 
+  DateTime fechaSeleccionada = DateTime.now();
+  TimeOfDay horaSeleccionada = TimeOfDay.now();
+
   Future<void> _ubicarCliente(String texto) async {
     if (texto.contains("q=")) {
       try {
@@ -133,6 +142,28 @@ class _AdminTapilimpioState extends State<AdminTapilimpio> {
           );
         }
       } catch (e) {}
+    }
+  }
+
+  Future<void> _seleccionarFecha(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: fechaSeleccionada,
+      firstDate: DateTime.now(),
+      lastDate: DateTime(2027),
+    );
+    if (picked != null && picked != fechaSeleccionada) {
+      setState(() => fechaSeleccionada = picked);
+    }
+  }
+
+  Future<void> _seleccionarHora(BuildContext context) async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: horaSeleccionada,
+    );
+    if (picked != null && picked != horaSeleccionada) {
+      setState(() => horaSeleccionada = picked);
     }
   }
 
@@ -277,6 +308,46 @@ class _AdminTapilimpioState extends State<AdminTapilimpio> {
                     ),
                   ],
                 ),
+
+                const Text(
+                  "Programar Servicio:",
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton.icon(
+                        icon: const Icon(Icons.calendar_today),
+                        label: Text(
+                          "${fechaSeleccionada.day}/${fechaSeleccionada.month}/${fechaSeleccionada.year}",
+                        ),
+                        onPressed: () async {
+                          DateTime? p = await showDatePicker(
+                            context: context,
+                            initialDate: fechaSeleccionada,
+                            firstDate: DateTime.now(),
+                            lastDate: DateTime(2027),
+                          );
+                          if (p != null) setState(() => fechaSeleccionada = p);
+                        },
+                      ),
+                    ),
+                    Expanded(
+                      child: TextButton.icon(
+                        icon: const Icon(Icons.access_time),
+                        label: Text(horaSeleccionada.format(context)),
+                        onPressed: () async {
+                          TimeOfDay? t = await showTimePicker(
+                            context: context,
+                            initialTime: horaSeleccionada,
+                          );
+                          if (t != null) setState(() => horaSeleccionada = t);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+
                 const Divider(height: 30),
                 ...trabajosAgregados.asMap().entries.map((entry) {
                   int idx = entry.key;

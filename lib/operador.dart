@@ -36,10 +36,10 @@ class ListaOrdenesOperador extends StatelessWidget {
         centerTitle: true,
       ),
       body: StreamBuilder(
-        // Simplificamos la consulta para evitar que se tilde por falta de índices
         stream: FirebaseFirestore.instance
             .collection('ordenes')
             .where('estado', isEqualTo: 'pendiente')
+            .orderBy('turno', descending: false) // Ordena por fecha de turno
             .snapshots(),
         builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
           if (snapshot.hasError)
@@ -67,7 +67,35 @@ class ListaOrdenesOperador extends StatelessWidget {
                     data['cliente_nombre'] ?? 'Sin Nombre',
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  subtitle: Text("${data['direccion']}\n${data['ciudad']}"),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text("${data['direccion']}\n${data['ciudad']}"),
+                      if (data['turno'] != null) ...[
+                        const SizedBox(height: 5),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.calendar_today,
+                              size: 14,
+                              color: Colors.blue,
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              "Turno: ${(data['turno'] as Timestamp).toDate().day}/"
+                              "${(data['turno'] as Timestamp).toDate().month} - "
+                              "${(data['turno'] as Timestamp).toDate().hour}:"
+                              "${(data['turno'] as Timestamp).toDate().minute.toString().padLeft(2, '0')} hs",
+                              style: const TextStyle(
+                                color: Colors.blue,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
                   trailing: const Icon(
                     Icons.arrow_forward_ios,
                     color: Colors.blueGrey,
