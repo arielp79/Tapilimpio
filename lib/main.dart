@@ -80,11 +80,17 @@ class _AdminTapilimpioState extends State<AdminTapilimpio> {
     'Fernández Oro',
   ];
   final List<String> catalogoTrabajos = [
+    'Auto Full',
+    'Auto SemiFull',
+    'Auto Básico',
+    'Alfombra Decorativa',
+    'Alfombra x m2',
+    'Sillas con respaldo',
+    'Sillas sin respaldo',
     'Sillón',
-    'Auto',
-    'Camioneta',
-    'Alfombra',
-    'Sillas',
+    'Colchón 1 plaza',
+    'Colchón 1 plaza y media',
+    'Colchón 2 plazas',
   ];
 
   final TextEditingController _nombreController = TextEditingController();
@@ -538,6 +544,354 @@ class DetalleOrden extends StatelessWidget {
 
   const DetalleOrden({super.key, required this.orden, required this.docId});
 
+  void _confirmarBorrado(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text("¿Borrar orden?"),
+          content: const Text("Esta acción no se puede deshacer."),
+          actions: [
+            TextButton(
+              child: const Text("CANCELAR"),
+              onPressed: () => Navigator.pop(context),
+            ),
+            TextButton(
+              child: const Text("BORRAR", style: TextStyle(color: Colors.red)),
+              onPressed: () async {
+                await FirebaseFirestore.instance
+                    .collection('ordenes')
+                    .doc(docId) // Usamos el ID que ya tenés
+                    .delete();
+
+                Navigator.pop(context); // Cierra el cartel
+                Navigator.pop(context); // Vuelve a la lista de órdenes
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _abrirEditor(BuildContext context) {
+    final TextEditingController nombreCtrl = TextEditingController(
+      text: orden['cliente_nombre'],
+    );
+    final TextEditingController telCtrl = TextEditingController(
+      text: orden['cliente_telefono'],
+    );
+    final TextEditingController dirCtrl = TextEditingController(
+      text: orden['direccion'],
+    );
+    final TextEditingController pisoCtrl = TextEditingController(
+      text: orden['piso'] ?? "",
+    );
+    final TextEditingController deptoCtrl = TextEditingController(
+      text: orden['depto'] ?? "",
+    );
+
+    // 1. LISTA FIJA DE CIUDADES (Modificá estos nombres a tu gusto)
+    List<String> ciudades = [
+      "Cipolletti",
+      "Neuquén",
+      "General Roca",
+      "Plottier",
+    ];
+
+    // Verificamos que la ciudad de la orden exista en la lista, si no, usamos la primera
+    String? ciudadSeleccionada = ciudades.contains(orden['ciudad'])
+        ? orden['ciudad']
+        : ciudades[0];
+
+    String? operadorSeleccionado = orden['operador'];
+    DateTime fechaSeleccionada = (orden['turno'] as Timestamp).toDate();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                top: 20,
+                left: 20,
+                right: 20,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      "EDITAR ORDEN",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 15),
+
+                    TextField(
+                      controller: nombreCtrl,
+                      decoration: const InputDecoration(labelText: "Cliente"),
+                    ),
+                    TextField(
+                      controller: telCtrl,
+                      decoration: const InputDecoration(labelText: "Teléfono"),
+                    ),
+                    TextField(
+                      controller: dirCtrl,
+                      decoration: const InputDecoration(labelText: "Dirección"),
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    // 2. DROPDOWN DE CIUDADES (Lista Fija)
+                    DropdownButtonFormField<String>(
+                      value: ciudadSeleccionada,
+                      decoration: const InputDecoration(labelText: "Ciudad"),
+                      items: ciudades
+                          .map(
+                            (c) => DropdownMenuItem(value: c, child: Text(c)),
+                          )
+                          .toList(),
+                      onChanged: (val) =>
+                          setModalState(() => ciudadSeleccionada = val),
+                    ),
+
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: pisoCtrl,
+                            decoration: const InputDecoration(
+                              labelText: "Piso",
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: TextField(
+                            controller: deptoCtrl,
+                            decoration: const InputDecoration(
+                              labelText: "Depto",
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    // 3. DROPDOWN DE OPERADORES (Sigue siendo Dinámico desde Firebase)
+                    StreamBuilder<QuerySnapshot>(
+                      stream: FirebaseFirestore.instance
+                          .collection('operadores')
+                          .snapshots(),
+                      builder: (context, snapshot) {
+                        if (!snapshot.hasData)
+                          return const LinearProgressIndicator();
+
+                        List<String> listaOperadores = snapshot.data!.docs
+                            .map((doc) => doc['nombre'].toString())
+                            .toList();
+
+                        if (!listaOperadores.contains(operadorSeleccionado)) {
+                          operadorSeleccionado = listaOperadores.isNotEmpty
+                              ? listaOperadores[0]
+                              : null;
+                        }
+
+                        return DropdownButtonFormField<String>(
+                          value: operadorSeleccionado,
+                          decoration: const InputDecoration(
+                            labelText: "Asignar Operador",
+                          ),
+                          items: listaOperadores
+                              .map(
+                                (op) => DropdownMenuItem(
+                                  value: op,
+                                  child: Text(op),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (val) =>
+                              setModalState(() => operadorSeleccionado = val),
+                        );
+                      },
+                    ),
+
+                    const SizedBox(height: 20),
+                    ListTile(
+                      tileColor: Colors.blue[50],
+                      leading: const Icon(
+                        Icons.calendar_month,
+                        color: Colors.blue,
+                      ),
+                      title: Text(
+                        "Turno: ${fechaSeleccionada.day}/${fechaSeleccionada.month} - ${fechaSeleccionada.hour}:${fechaSeleccionada.minute.toString().padLeft(2, '0')} hs",
+                      ),
+                      onTap: () async {
+                        DateTime? pDate = await showDatePicker(
+                          context: context,
+                          initialDate: fechaSeleccionada,
+                          firstDate: DateTime(2024),
+                          lastDate: DateTime(2030),
+                        );
+                        if (pDate == null) return;
+                        TimeOfDay? pTime = await showTimePicker(
+                          context: context,
+                          initialTime: TimeOfDay.fromDateTime(
+                            fechaSeleccionada,
+                          ),
+                        );
+                        if (pTime == null) return;
+                        setModalState(
+                          () => fechaSeleccionada = DateTime(
+                            pDate.year,
+                            pDate.month,
+                            pDate.day,
+                            pTime.hour,
+                            pTime.minute,
+                          ),
+                        );
+                      },
+                    ),
+
+                    // ... (dentro del Column del modal)
+                    const Divider(),
+                    const Text(
+                      "TRABAJOS",
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+
+                    // Mostramos los trabajos que ya tiene la orden
+                    ...List.generate(orden['trabajos'].length, (index) {
+                      var t = orden['trabajos'][index];
+                      return ListTile(
+                        title: Text("${t['tipo']} x${t['cantidad']}"),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          onPressed: () {
+                            setModalState(() {
+                              orden['trabajos'].removeAt(
+                                index,
+                              ); // Quita el servicio de la lista local
+                            });
+                          },
+                        ),
+                      );
+                    }),
+
+                    // BOTÓN PARA AGREGAR UN NUEVO SERVICIO
+                    TextButton.icon(
+                      icon: const Icon(Icons.add),
+                      label: const Text("Añadir otro servicio"),
+                      onPressed: () {
+                        _mostrarDialogoNuevoServicio(context, (nuevoServicio) {
+                          setModalState(() {
+                            orden['trabajos'].add(
+                              nuevoServicio,
+                            ); // Agrega el servicio a la lista local
+                          });
+                        });
+                      },
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // ... (luego viene el botón de GUARDAR CAMBIOS que ya tenías)
+                    const SizedBox(height: 25),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        minimumSize: const Size(double.infinity, 50),
+                      ),
+                      onPressed: () async {
+                        await FirebaseFirestore.instance
+                            .collection('ordenes')
+                            .doc(docId)
+                            .update({
+                              'cliente_nombre': nombreCtrl.text,
+                              'cliente_telefono': telCtrl.text,
+                              'direccion': dirCtrl.text,
+                              'piso': pisoCtrl.text,
+                              'depto': deptoCtrl.text,
+                              'operador': operadorSeleccionado,
+                              'ciudad': ciudadSeleccionada,
+                              'turno': Timestamp.fromDate(fechaSeleccionada),
+                            });
+                        Navigator.pop(context);
+                        Navigator.pop(context);
+                      },
+                      child: const Text(
+                        "GUARDAR CAMBIOS",
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _mostrarDialogoNuevoServicio(
+    BuildContext context,
+    Function(Map<String, dynamic>) onAgregar,
+  ) {
+    String tipo = "Limpieza Alfombras"; // Valor por defecto
+    int cantidad = 1;
+    double precio = 0;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Nuevo Servicio"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              decoration: const InputDecoration(labelText: "Tipo de trabajo"),
+              onChanged: (val) => tipo = val,
+            ),
+            TextField(
+              decoration: const InputDecoration(labelText: "Cantidad"),
+              keyboardType: TextInputType.number,
+              onChanged: (val) => cantidad = int.tryParse(val) ?? 1,
+            ),
+            TextField(
+              decoration: const InputDecoration(labelText: "Precio Unitario"),
+              keyboardType: TextInputType.number,
+              onChanged: (val) => precio = double.tryParse(val) ?? 0,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("CANCELAR"),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              onAgregar({'tipo': tipo, 'cantidad': cantidad, 'precio': precio});
+              Navigator.pop(context);
+            },
+            child: const Text("AGREGAR"),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // Recuperamos la lista de trabajos de la orden
@@ -546,7 +900,17 @@ class DetalleOrden extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Detalle de la Orden"),
-        backgroundColor: Colors.blueGrey,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.delete_sweep, color: Colors.redAccent),
+            onPressed: () =>
+                _confirmarBorrado(context), // Función que crearemos ahora
+          ),
+          IconButton(
+            icon: const Icon(Icons.edit, color: Colors.black),
+            onPressed: () => _abrirEditor(context),
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
