@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,95 +26,144 @@ void main() async {
   );
 }
 
-class ListaOrdenesOperador extends StatelessWidget {
+class ListaOrdenesOperador extends StatefulWidget {
   const ListaOrdenesOperador({super.key});
+
+  @override
+  State<ListaOrdenesOperador> createState() => _ListaOrdenesOperadorState();
+}
+
+class _ListaOrdenesOperadorState extends State<ListaOrdenesOperador> {
+  String? miNombre;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarIdentidad();
+  }
+
+  Future<void> _cargarIdentidad() async {
+    final prefs = await SharedPreferences.getInstance();
+    String? nombreGuardado = prefs.getString('nombre_operador');
+
+    if (nombreGuardado == null) {
+      _pedirNombre();
+    } else {
+      setState(() => miNombre = nombreGuardado);
+      _actualizarToken(nombreGuardado);
+    }
+  }
+
+  void _pedirNombre() {
+    TextEditingController _nameCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text("Identificación de Operador"),
+        content: TextField(
+          controller: _nameCtrl,
+          decoration: const InputDecoration(
+            hintText: "Tu nombre exacto (ej: Juan)",
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              if (_nameCtrl.text.isNotEmpty) {
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setString('nombre_operador', _nameCtrl.text);
+                setState(() => miNombre = _nameCtrl.text);
+                Navigator.pop(context);
+                _actualizarToken(_nameCtrl.text);
+              }
+            },
+            child: const Text("GUARDAR"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _actualizarToken(String nombre) async {
+    FirebaseMessaging messaging = FirebaseMessaging.instance;
+    await messaging.requestPermission();
+    String? token = await messaging.getToken();
+
+    if (token != null) {
+      var query = await FirebaseFirestore.instance
+          .collection('operadores')
+          .where('nombre', isEqualTo: nombre)
+          .get();
+
+      for (var doc in query.docs) {
+        await doc.reference.update({'fcmToken': token});
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Servicios Pendientes"),
+        title: Text(
+          miNombre == null ? "Identificando..." : "Órdenes de $miNombre",
+        ),
         backgroundColor: Colors.blueGrey,
         centerTitle: true,
       ),
-      body: StreamBuilder(
-        stream: FirebaseFirestore.instance
-            .collection('ordenes')
-            .where('estado', isEqualTo: 'pendiente')
-            .orderBy('turno', descending: false) // Ordena por fecha de turno
-            .snapshots(),
-        builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
-          if (snapshot.hasError)
-            return Center(child: Text("Error: ${snapshot.error}"));
+      body: miNombre == null
+          ? const Center(child: CircularProgressIndicator())
+          : StreamBuilder(
+              stream: FirebaseFirestore.instance
+                  .collection('ordenes')
+                  .where('estado', isEqualTo: 'pendiente')
+                  .where('operador', isEqualTo: miNombre)
+                  .snapshots(),
+              builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
+                if (snapshot.hasError)
+                  return Center(child: Text("Error: ${snapshot.error}"));
+                if (snapshot.connectionState == ConnectionState.waiting)
+                  return const Center(child: CircularProgressIndicator());
+                if (snapshot.data!.docs.isEmpty)
+                  return const Center(
+                    child: Text("No tienes servicios asignados."),
+                  );
 
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (snapshot.data!.docs.isEmpty) {
-            return const Center(child: Text("No hay servicios asignados."));
-          }
-
-          return ListView.builder(
-            padding: const EdgeInsets.all(10),
-            itemCount: snapshot.data!.docs.length,
-            itemBuilder: (context, index) {
-              var doc = snapshot.data!.docs[index];
-              var data = doc.data() as Map<String, dynamic>;
-              return Card(
-                elevation: 3,
-                margin: const EdgeInsets.symmetric(vertical: 8),
-                child: ListTile(
-                  title: Text(
-                    data['cliente_nombre'] ?? 'Sin Nombre',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text("${data['direccion']}\n${data['ciudad']}"),
-                      if (data['turno'] != null) ...[
-                        const SizedBox(height: 5),
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.calendar_today,
-                              size: 14,
-                              color: Colors.blue,
-                            ),
-                            const SizedBox(width: 5),
-                            Text(
-                              "Turno: ${(data['turno'] as Timestamp).toDate().day}/"
-                              "${(data['turno'] as Timestamp).toDate().month} - "
-                              "${(data['turno'] as Timestamp).toDate().hour}:"
-                              "${(data['turno'] as Timestamp).toDate().minute.toString().padLeft(2, '0')} hs",
-                              style: const TextStyle(
-                                color: Colors.blue,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
+                return ListView.builder(
+                  padding: const EdgeInsets.all(10),
+                  itemCount: snapshot.data!.docs.length,
+                  itemBuilder: (context, index) {
+                    var doc = snapshot.data!.docs[index];
+                    var data = doc.data() as Map<String, dynamic>;
+                    return Card(
+                      elevation: 3,
+                      margin: const EdgeInsets.symmetric(vertical: 8),
+                      child: ListTile(
+                        title: Text(
+                          data['cliente_nombre'] ?? 'Sin Nombre',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
-                      ],
-                    ],
-                  ),
-                  trailing: const Icon(
-                    Icons.arrow_forward_ios,
-                    color: Colors.blueGrey,
-                  ),
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) =>
-                          DetalleSoloLectura(orden: data, docId: doc.id),
-                    ),
-                  ),
-                ),
-              );
-            },
-          );
-        },
-      ),
+                        subtitle: Text(
+                          "${data['direccion']}\n${data['ciudad']}",
+                        ),
+                        trailing: const Icon(
+                          Icons.arrow_forward_ios,
+                          color: Colors.blueGrey,
+                        ),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                DetalleSoloLectura(orden: data, docId: doc.id),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
     );
   }
 }
@@ -120,49 +171,54 @@ class ListaOrdenesOperador extends StatelessWidget {
 class DetalleSoloLectura extends StatelessWidget {
   final Map<String, dynamic> orden;
   final String docId;
+
   const DetalleSoloLectura({
     super.key,
     required this.orden,
     required this.docId,
   });
 
-  // FUNCIÓN PARA ABRIR GOOGLE MAPS
   void _abrirMapa(String direccion, String ciudad) async {
-    // Limpiamos la dirección para que sea una búsqueda válida
     String query = Uri.encodeComponent("$direccion, $ciudad");
-    String googleMapsUrl =
-        "https://www.google.com/maps/search/?api=1&query=$query";
-    String appleMapsUrl = "https://maps.apple.com/?q=$query";
-
-    if (await canLaunchUrl(Uri.parse(googleMapsUrl))) {
-      await launchUrl(
-        Uri.parse(googleMapsUrl),
-        mode: LaunchMode.externalApplication,
-      );
-    } else if (await canLaunchUrl(Uri.parse(appleMapsUrl))) {
-      await launchUrl(
-        Uri.parse(appleMapsUrl),
-        mode: LaunchMode.externalApplication,
-      );
+    Uri url = Uri.parse(
+      "https://www.google.com/maps/search/?api=1&query=$query",
+    );
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
     }
   }
 
   void _abrirWhatsApp(String telefono, String cliente, String direccion) async {
     String mensaje =
         "Hola $cliente, soy de Tapilimpio. Estoy en camino a tu domicilio en $direccion.";
-    var url = "https://wa.me/$telefono?text=${Uri.encodeComponent(mensaje)}";
-    if (await canLaunchUrl(Uri.parse(url))) {
-      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    Uri url = Uri.parse(
+      "https://wa.me/$telefono?text=${Uri.encodeComponent(mensaje)}",
+    );
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    List trabajos = orden['trabajos'] ?? [];
-    double total = trabajos.fold(
-      0.0,
-      (sum, item) => sum + ((item['precio'] ?? 0) * (item['cantidad'] ?? 1)),
-    );
+    // 1. Manejo seguro de la lista de trabajos
+    final List trabajos = orden['trabajos'] is List ? orden['trabajos'] : [];
+
+    // 2. Cálculo del total (Reemplaza al .fold que fallaba)
+    double totalCalculado = 0.0;
+    for (var item in trabajos) {
+      double p = (item['precio'] ?? 0).toDouble();
+      int c = (item['cantidad'] ?? 1);
+      totalCalculado += (p * c);
+    }
+
+    // 3. Manejo de Fecha y Turno (Lo que pediste mostrar)
+    String fechaTexto = "Sin fecha";
+    if (orden['turno'] != null && orden['turno'] is Timestamp) {
+      DateTime dt = (orden['turno'] as Timestamp).toDate();
+      fechaTexto =
+          "${dt.day}/${dt.month}/${dt.year} - ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}hs";
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text("Información del Trabajo")),
@@ -171,13 +227,38 @@ class DetalleSoloLectura extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // RECUADRO DE FECHA Y TURNO
+            Container(
+              padding: const EdgeInsets.all(12),
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.blueGrey.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    "📅 FECHA Y HORA ASIGNADA",
+                    style: TextStyle(fontSize: 12, color: Colors.blueGrey[700]),
+                  ),
+                  Text(
+                    fechaTexto,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
             Text(
               orden['cliente_nombre'] ?? 'Cliente',
               style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
 
-            // BOTÓN WHATSAPP
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF25D366),
@@ -197,7 +278,6 @@ class DetalleSoloLectura extends StatelessWidget {
 
             const Divider(height: 40),
 
-            // DIRECCIÓN CLICKEABLE
             const Text(
               "📍 DIRECCIÓN (Toca para ir con GPS)",
               style: TextStyle(
@@ -228,7 +308,7 @@ class DetalleSoloLectura extends StatelessWidget {
                             "${orden['direccion']}",
                             style: const TextStyle(
                               fontSize: 18,
-                              fontWeight: FontWeight.w500,
+                              fontWeight: FontWeight.bold,
                               color: Colors.blue,
                             ),
                           ),
@@ -265,7 +345,7 @@ class DetalleSoloLectura extends StatelessWidget {
 
             const Divider(),
             Text(
-              "A COBRAR: \$${total.toStringAsFixed(0)}",
+              "A COBRAR: \$${totalCalculado.toStringAsFixed(0)}",
               style: const TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
@@ -281,8 +361,8 @@ class DetalleSoloLectura extends StatelessWidget {
                   backgroundColor: Colors.blueGrey,
                   padding: const EdgeInsets.all(15),
                 ),
-                onPressed: () {
-                  FirebaseFirestore.instance
+                onPressed: () async {
+                  await FirebaseFirestore.instance
                       .collection('ordenes')
                       .doc(docId)
                       .update({'estado': 'completado'});
