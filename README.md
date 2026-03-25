@@ -1,28 +1,34 @@
-# \# Tapilimpio Admin 🧼
+# Tapilimpio - Service Management System
 
-# 
+A professional Full-Stack solution designed to streamline service scheduling and client management for service-oriented businesses.
 
-# Sistema de gestión de órdenes de limpieza para \*\*Tapilimpio\*\*.
+## 🚀 Technologies Used
 
-# 
+* **Frontend:** React.js, React Router, Axios.
+* **Backend:** Node.js, Express.js.
+* **Database:** MongoDB with Mongoose ODM.
+* **Security:** JWT (JSON Web Tokens) for authentication and Bcrypt for password hashing.
+* **Tools:** Dotenv for environment variables and Git for version control.
 
-# \## Funcionalidades actuales:
+## 🛠️ Key Features
 
-# \* 📍 \*\*Geolocalización:\*\* Ubicación de clientes mediante Google Maps y búsqueda por dirección.
+* **Secure Authentication:** User login and registration with encrypted passwords.
+* **Appointment Management:** Create, read, update, and delete service records.
+* **Client Database:** Organized storage of customer information for quick access.
+* **RESTful API:** Clean and scalable backend architecture.
+* **Responsive UI:** Optimized for desktop and mobile browsers.
 
-# \* 📋 \*\*Gestión de Órdenes:\*\* Creación de pedidos con múltiples ítems, cantidades y precios.
+## 📦 Installation & Setup
 
-# \* 👷 \*\*Control de Operadores:\*\* Asignación de personal y gestión de la lista de operadores desde Firebase.
+1.  **Clone the repository:**
+    `git clone https://github.com/arielp79/Tapilimpio.git`
+2.  **Install dependencies:**
+    * `cd backend && npm install`
+    * `cd ../frontend && npm install`
+3.  **Environment Variables:** Create a `.env` file in the backend folder with your `MONGO_URI` and `JWT_SECRET`.
+4.  **Run the application:**
+    * Backend: `npm start` (inside /backend)
+    * Frontend: `npm start` (inside /frontend)
 
-# \* 🔍 \*\*Filtros:\*\* Visualización de órdenes pendientes y filtrado por operador.
-
-# 
-
-# \## Tecnologías usadas:
-
-# \* Flutter \& Dart
-
-# \* Firebase Firestore (Base de datos en tiempo real)
-
-# \* Google Maps SDK
-
+---
+*Developed by Ariel - Full Stack Developer specializing in MERN & Flutter.*
